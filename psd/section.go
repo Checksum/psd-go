@@ -27,7 +27,8 @@ type Section struct {
 }
 
 func (s Section) String() string {
-	return fmt.Sprintf("Section %s starting at %d with length %d bytes", string(s.Name), s.Start, s.End)
+	return fmt.Sprintf("Section %s starting at offset %d with length %d bytes",
+		string(s.Name), s.Start, s.End)
 }
 
 // --------------------------------- File Header --------------------------- //
@@ -48,9 +49,9 @@ type FileHeader struct {
 }
 
 func (header *FileHeader) Validate() bool {
-	fmt.Println(header)
 	// Magic Word
-	if string(header.Data.MagicWord[0:]) == "8BPS" && header.Data.Version == 1 && header.Data.Channels < 56 {
+	if string(header.Data.MagicWord[0:]) == "8BPS" && header.Data.Version == 1 &&
+		header.Data.Channels < 56 {
 		return true
 	}
 	return false
@@ -96,7 +97,7 @@ func (cm *ColorMode) Read(file *os.File) Section {
 		file.Seek(int64(length), os.SEEK_CUR)
 	}
 	end, _ := file.Seek(0, os.SEEK_CUR)
-	section := Section{"ColorMode", int(start), int(end)}
+	section := Section{"ColorMode", int(start), int(end) - int(start)}
 	return section
 }
 

@@ -33,7 +33,10 @@ func NewPSD(path string) (*PSD, error) {
 
 func (psd *PSD) Parse() {
 
-	sections := []sectionReader{new(FileHeader)}
+	sections := []sectionReader{
+		new(FileHeader),
+		new(ColorMode),
+	}
 	for _, section := range sections {
 		info := section.Read(psd.File)
 		log.Printf("%v", info)
