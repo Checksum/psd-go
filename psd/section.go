@@ -6,6 +6,10 @@ import (
 	"os"
 )
 
+// All sections must implement this interface
+// Take in the file handle, read the binary data
+// as per the defined structure and return the section
+// information
 type sectionReader interface {
 	Read(*os.File) Section
 }
@@ -22,7 +26,11 @@ type Section struct {
 	End   int
 }
 
-// File Header
+func (s Section) String() string {
+	return fmt.Sprintf("Section %s starting at %d with length %d bytes", string(s.Name), s.Start, s.End)
+}
+
+// --------------------------------- File Header --------------------------- //
 type FileHeaderBuffer struct {
 	MagicWord [4]byte
 	Version   uint16 // 2 bytes
@@ -35,14 +43,14 @@ type FileHeaderBuffer struct {
 }
 
 type FileHeader struct {
-	Buffer FileHeaderBuffer
+	Data FileHeaderBuffer
 	Section
 }
 
 func (header *FileHeader) Validate() bool {
 	fmt.Println(header)
 	// Magic Word
-	if string(header.Buffer.MagicWord[0:]) == "8BPS" && header.Buffer.Version == 1 && header.Buffer.Channels < 56 {
+	if string(header.Data.MagicWord[0:]) == "8BPS" && header.Data.Version == 1 && header.Data.Channels < 56 {
 		return true
 	}
 	return false
@@ -52,7 +60,7 @@ func (header *FileHeader) Read(file *os.File) Section {
 	var buffer FileHeaderBuffer
 	err := binary.Read(file, binary.BigEndian, &buffer)
 	checkError(err)
-	header.Buffer = buffer
+	header.Data = buffer
 	if !header.Validate() {
 		panic("Invalid PSD file")
 	}
@@ -60,16 +68,7 @@ func (header *FileHeader) Read(file *os.File) Section {
 	return section
 }
 
-// func (s *FileHeader) Read() {
-// 	var header FileHeader
-// 	error := binary.Read(s.File, binary.BigEndian, &header)
-// 	checkError(error)
-// 	if !header.Validate() {
-// 		panic("Invalid PSD file")
-// 	}
-// }
-
-// Color Mode
+// --------------------------------- Color Mode ---------------------------- //
 const (
 	CmBitmap       = 0
 	CmGrayscale    = 1
@@ -86,8 +85,19 @@ type ColorMode struct {
 	Data   []byte
 }
 
-func (colorMode *ColorMode) Read() {
-
+func (cm *ColorMode) Read(file *os.File) Section {
+	start, _ := file.Seek(0, os.SEEK_CUR)
+	var length uint32
+	err := binary.Read(file, binary.BigEndian, &length)
+	checkError(err)
+	// If indexed or duotone, we are just going to skip
+	// through the data section of color mode
+	if length != 0 {
+		file.Seek(int64(length), os.SEEK_CUR)
+	}
+	end, _ := file.Seek(0, os.SEEK_CUR)
+	section := Section{"ColorMode", int(start), int(end)}
+	return section
 }
 
 type ResourceBlock struct {

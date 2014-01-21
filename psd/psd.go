@@ -35,7 +35,8 @@ func (psd *PSD) Parse() {
 
 	sections := []sectionReader{new(FileHeader)}
 	for _, section := range sections {
-		section.Read(psd.File)
+		info := section.Read(psd.File)
+		log.Printf("%v", info)
 	}
 
 	// psd.ParseHeader()
