@@ -6,11 +6,18 @@ import (
 	"os"
 )
 
+type PSDFile *os.File
+
+func (file *PSDFile) CurrentPos() int64 {
+	pos, _ := file.Seek(0, os.SEEK_CUR)
+	return pos
+}
+
 type PSD struct {
 	Path   string
-	File   *os.File `json:"-"` // Exclude from JSON
-	Width  uint32   `json:"width"`
-	Height uint32   `json:"height"`
+	File   PSDFile `json:"-"` // Exclude from JSON
+	Width  uint32  `json:"width"`
+	Height uint32  `json:"height"`
 }
 
 func checkError(e error) {
@@ -36,6 +43,7 @@ func (psd *PSD) Parse() {
 	sections := []sectionReader{
 		new(FileHeader),
 		new(ColorMode),
+		new(ImageResources),
 	}
 	for _, section := range sections {
 		info := section.Read(psd.File)
@@ -122,9 +130,4 @@ func (psd *PSD) ParseImageData() {
 	var Len uint16
 	binary.Read(psd.File, binary.BigEndian, &Len)
 	log.Printf("Length of Image Data: %d", Len)
-}
-
-func (psd *PSD) CurrentPos() int64 {
-	pos, _ := psd.File.Seek(0, os.SEEK_CUR)
-	return pos
 }

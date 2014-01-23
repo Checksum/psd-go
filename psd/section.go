@@ -101,10 +101,104 @@ func (cm *ColorMode) Read(file *os.File) Section {
 	return section
 }
 
+// ------------------------------- Resource Blocks ------------------------- //
+// Pascal length prefixed string
+// The first byte is the length of the string
+// This is even padded
+type pString struct {
+	Len  uint8
+	Text []byte
+}
+
+func (str *pString) Read(file *os.File) {
+	var length uint8
+	err := binary.Read(file, binary.BigEndian, &length)
+	checkError(err)
+	fmt.Println(length)
+	str.Len = length
+	// Pad the length
+	// Note that the even padded string size also includes
+	// the first byte that is read as length
+	length += 1
+
+	if length%2 != 0 {
+		length += 1
+	}
+	// Since we have already read one byte from the even padded
+	// string, decrease the number of bytes to read by 1
+	length -= 1
+	// And now, read length bytes as the string
+	str.Text = make([]byte, length)
+	e := binary.Read(file, binary.BigEndian, &str.Text)
+	checkError(e)
+}
+
+type ImageResources struct {
+	Length uint32
+	Data   []byte
+}
+
 type ResourceBlock struct {
 	Signature [4]byte
 	Id        uint16
-	Name      []byte // Variable
-	Size      uint32 // Size of the data field
+	Name      pString // Variable length string
+	Size      uint32  // Size of the data field
 	Data      []byte
+}
+
+func (r *ResourceBlock) Read(file *os.File) {
+	// The block signature is always 8BIM
+	binary.Read(file, binary.BigEndian, &r.Signature)
+	// fmt.Println(string(r.Signature[0:]))
+	// Next comes the ID
+	binary.Read(file, binary.BigEndian, &r.Id)
+	// Read the resource name
+	// r.Name = new(pString)
+	fmt.Println("Before reading %d", file.GetCurrentPos())
+	r.Name.Read(file)
+	fmt.Println("After reading %d", file.GetCurrentPos())
+	// Block size
+	binary.Read(file, binary.BigEndian, &r.Size)
+	if r.Size%2 == 0 {
+		r.Size += 1
+	}
+	// fmt.Println(r.Size)
+	r.Data = make([]byte, r.Size)
+	binary.Read(file, binary.BigEndian, &r.Data)
+}
+
+// The Resource block is of variable size. To determine
+// where we have to stop, we need to first read the length
+// of the resource section (which is the first 4 bytes) and then
+// loop over and process the individual resource blocks
+// Each resource block, in turn can be of variable size
+func (b *ImageResources) Read(file *os.File) Section {
+	start, _ := file.Seek(0, os.SEEK_CUR)
+	var length uint32
+	read := uint32(0)
+	err := binary.Read(file, binary.BigEndian, &length)
+	checkError(err)
+	//log.Printf("Length of resource block section: %d bytes", length)
+
+	for read <= length {
+		// Create a new resource block
+		block := new(ResourceBlock)
+		block.Read(file)
+		pos, _ := file.Seek(0, os.SEEK_CUR)
+		read += uint32(pos)
+		// err := binary.Read(file, binary.BigEndian, &r)
+		// checkError(err)
+		// read += uint32(binary.Size(r))
+		// // Even padded size of data section
+		// if r.Size%2 != 0 {
+		// 	r.Size += 1
+		// }
+		// // Skip that r.Size bytes to read the next block
+		// file.Seek(int64(r.Size), os.SEEK_CUR)
+		// read += uint32(r.Size)
+		fmt.Printf("Resource Block %s, Id: %d, Size: %d \n",
+			string(block.Name.Text[0:]), block.Id, block.Size)
+	}
+
+	return Section{"ImageResources", int(start), int(length)}
 }
