@@ -6,18 +6,11 @@ import (
 	"os"
 )
 
-type PSDFile *os.File
-
-func (file *PSDFile) CurrentPos() int64 {
-	pos, _ := file.Seek(0, os.SEEK_CUR)
-	return pos
-}
-
 type PSD struct {
 	Path   string
-	File   PSDFile `json:"-"` // Exclude from JSON
-	Width  uint32  `json:"width"`
-	Height uint32  `json:"height"`
+	File   *os.File `json:"-"` // Exclude from JSON
+	Width  uint32   `json:"width"`
+	Height uint32   `json:"height"`
 }
 
 func checkError(e error) {

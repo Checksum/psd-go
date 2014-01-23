@@ -87,7 +87,7 @@ type ColorMode struct {
 }
 
 func (cm *ColorMode) Read(file *os.File) Section {
-	start, _ := file.Seek(0, os.SEEK_CUR)
+	start := CurrentPos(file)
 	var length uint32
 	err := binary.Read(file, binary.BigEndian, &length)
 	checkError(err)
@@ -114,7 +114,7 @@ func (str *pString) Read(file *os.File) {
 	var length uint8
 	err := binary.Read(file, binary.BigEndian, &length)
 	checkError(err)
-	fmt.Println(length)
+	// fmt.Println(length)
 	str.Len = length
 	// Pad the length
 	// Note that the even padded string size also includes
@@ -129,6 +129,7 @@ func (str *pString) Read(file *os.File) {
 	length -= 1
 	// And now, read length bytes as the string
 	str.Text = make([]byte, length)
+	// fmt.Println("Size of text: ", len(str.Text))
 	e := binary.Read(file, binary.BigEndian, &str.Text)
 	checkError(e)
 }
@@ -146,25 +147,30 @@ type ResourceBlock struct {
 	Data      []byte
 }
 
-func (r *ResourceBlock) Read(file *os.File) {
+func (r *ResourceBlock) Read(file *os.File) int {
+	start := CurrentPos(file)
 	// The block signature is always 8BIM
 	binary.Read(file, binary.BigEndian, &r.Signature)
-	// fmt.Println(string(r.Signature[0:]))
+	fmt.Println(string(r.Signature[0:]))
 	// Next comes the ID
 	binary.Read(file, binary.BigEndian, &r.Id)
+	fmt.Println("Resource ID: ", r.Id)
 	// Read the resource name
 	// r.Name = new(pString)
-	fmt.Println("Before reading %d", file.GetCurrentPos())
+	// fmt.Printf("Before reading %d\n", CurrentPos(file))
 	r.Name.Read(file)
-	fmt.Println("After reading %d", file.GetCurrentPos())
+	// fmt.Printf("After reading %d\n", CurrentPos(file))
 	// Block size
 	binary.Read(file, binary.BigEndian, &r.Size)
-	if r.Size%2 == 0 {
+	if r.Size%2 != 0 {
 		r.Size += 1
 	}
-	// fmt.Println(r.Size)
+	fmt.Println("Size of data section: ", r.Size)
 	r.Data = make([]byte, r.Size)
 	binary.Read(file, binary.BigEndian, &r.Data)
+	// fmt.Println(string(r.Data[:]))
+	end := CurrentPos(file)
+	return int(end - start)
 }
 
 // The Resource block is of variable size. To determine
@@ -178,26 +184,17 @@ func (b *ImageResources) Read(file *os.File) Section {
 	read := uint32(0)
 	err := binary.Read(file, binary.BigEndian, &length)
 	checkError(err)
-	//log.Printf("Length of resource block section: %d bytes", length)
+	fmt.Printf("\n\nLength of resource block section: %d bytes\n\n", length)
 
-	for read <= length {
+	for read < length {
+		fmt.Println("Creating new block at position: ", CurrentPos(file))
 		// Create a new resource block
 		block := new(ResourceBlock)
-		block.Read(file)
-		pos, _ := file.Seek(0, os.SEEK_CUR)
-		read += uint32(pos)
-		// err := binary.Read(file, binary.BigEndian, &r)
-		// checkError(err)
-		// read += uint32(binary.Size(r))
-		// // Even padded size of data section
-		// if r.Size%2 != 0 {
-		// 	r.Size += 1
-		// }
-		// // Skip that r.Size bytes to read the next block
-		// file.Seek(int64(r.Size), os.SEEK_CUR)
-		// read += uint32(r.Size)
-		fmt.Printf("Resource Block %s, Id: %d, Size: %d \n",
-			string(block.Name.Text[0:]), block.Id, block.Size)
+		size := block.Read(file)
+		fmt.Println("Position after reading block: ", CurrentPos(file))
+		read += uint32(size)
+		fmt.Printf("Resource Block %s, Id: %d, Size: %d, Pos:%d \n",
+			string(block.Name.Text[0:]), block.Id, block.Size, read)
 	}
 
 	return Section{"ImageResources", int(start), int(length)}
