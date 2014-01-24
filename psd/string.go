@@ -1,7 +1,6 @@
 package psd
 
 import (
-	"encoding/binary"
 	"os"
 )
 
@@ -15,9 +14,7 @@ type pString struct {
 
 func (str *pString) Read(file *os.File) {
 	var length uint8
-	err := binary.Read(file, binary.BigEndian, &length)
-	checkError(err)
-	// fmt.Println(length)
+	R(file, &length)
 	str.Len = length
 	// Pad the length
 	// Note that the even padded string size also includes
@@ -31,9 +28,7 @@ func (str *pString) Read(file *os.File) {
 	length -= 1
 	// And now, read length bytes as the string
 	str.Text = make([]byte, length)
-	// fmt.Println("Size of text: ", len(str.Text))
-	e := binary.Read(file, binary.BigEndian, &str.Text)
-	checkError(e)
+	R(file, &str.Text)
 }
 
 // Unicode string
@@ -44,10 +39,8 @@ type uString struct {
 
 func (str *uString) Read(file *os.File) {
 	var length uint32
-	err := binary.Read(file, binary.BigEndian, &length)
-	checkError(err)
+	R(file, &length)
 	str.Len = length
 	str.Text = make([]byte, length*2)
-	e := binary.Read(file, binary.BigEndian, &str.Text)
-	checkError(e)
+	R(file, &str.Text)
 }
