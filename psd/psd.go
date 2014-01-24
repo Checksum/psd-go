@@ -13,12 +13,6 @@ type PSD struct {
 	Height uint32   `json:"height"`
 }
 
-func checkError(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
 func NewPSD(path string) (*PSD, error) {
 	file, err := os.Open(path)
 	if err != nil {

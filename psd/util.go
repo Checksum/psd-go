@@ -5,12 +5,20 @@ import (
 	"os"
 )
 
+// Pass in a file handle and a reference to a field
+// Ex: R(file, &int32)
 func R(file *os.File, buf interface{}) error {
 	err := binary.Read(file, binary.BigEndian, buf)
 	if err != nil {
 		panic(err)
 	}
 	return nil
+}
+
+func checkError(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
 
 func CurrentPos(file *os.File) int64 {
